@@ -25,13 +25,15 @@ const sidebars = {
       type: "category",
       label: "Features",
       items: [
-        "features/bootstrap",
         "features/run-tasks",
         "features/cache-tasks",
+        "features/share-your-cache",
         "features/project-graph",
         "features/distribute-tasks",
         "features/version-and-publish",
-        "features/editor-plugins",
+        "features/editor-integrations",
+        "features/legacy-package-management",
+        "features/workspace-watching",
       ],
       link: {
         type: "generated-index",
@@ -43,7 +45,13 @@ const sidebars = {
     {
       type: "category",
       label: "Concepts",
-      items: ["concepts/hoisting"],
+      items: [
+        "concepts/task-pipeline-configuration",
+        "concepts/how-caching-works",
+        "concepts/dte-guide",
+        "concepts/alternate-bootstrapping-methods",
+        "concepts/hoisting",
+      ],
       link: {
         type: "generated-index",
         title: "Concepts",
@@ -54,10 +62,16 @@ const sidebars = {
     },
     {
       type: "category",
+      label: "Recipes",
+      items: ["recipes/using-pnpm-with-lerna"],
+    },
+    {
+      type: "category",
       label: "API Reference",
       items: ["api-reference/commands", "api-reference/configuration"],
     },
     "faq",
+    "lerna6-obsolete-options",
     "troubleshooting",
   ],
 };

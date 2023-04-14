@@ -1,4 +1,4 @@
-import { ChevronRightIcon, DuplicateIcon } from "@heroicons/react/outline";
+import { ChevronRightIcon, DocumentDuplicateIcon } from "@heroicons/react/24/outline";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import React, { useEffect, useState } from "react";
 import clsx from "clsx";
@@ -41,7 +41,7 @@ export default function HeroLerna(): JSX.Element {
               <span className={styles.slogan__highlight}>JavaScript Monorepos</span>
             </h1>
             <p className={styles.description}>
-              Lerna is a fast modern build system for managing and publishing multiple JavaScript/TypeScript
+              Lerna is a fast, modern build system for managing and publishing multiple JavaScript/TypeScript
               packages from the same repository.
             </p>
             <div className="padding-vert--md row">
@@ -66,7 +66,7 @@ export default function HeroLerna(): JSX.Element {
                     <span className={styles.command__text}>
                       <span aria-hidden="true">$</span> {command}
                     </span>
-                    <DuplicateIcon className={styles.command__icon} />
+                    <DocumentDuplicateIcon className={styles.command__icon} />
                   </button>
                 </CopyToClipboard>
               </div>

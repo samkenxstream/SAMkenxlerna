@@ -1,87 +1,126 @@
 ---
 id: distribute-tasks
 title: Distribute Task Execution
-type: explanation
+type: recipe
 ---
 
 # Distribute Task Execution (DTE)
 
-Lerna (via Nx) supports running commands across multiple machines. You can either set it up by hand (by using batching
-or
-binning) or use Nx Cloud.
+Lerna speeds up your average CI time with [caching](/docs/features/cache-tasks) and the `--since` flag. But neither of these features help with the worst case scenario. When something at the core of your repo has been modified and every task needs to be run in CI, the only way to improve the performance is by adding more agent jobs and efficiently parallelizing the tasks.
 
-[Read the comparison of the two approaches.](https://blog.nrwl.io/distributing-ci-binning-and-distributed-task-execution-632fe31a8953?source=friends_link&sk=5120b7ff982730854ed22becfe7a640a)
+The most obvious way to parallelize tasks is to split tasks up by type: running all tests on one job, all builds on another and all lint tasks on a third. This strategy is called binning. This can be made difficult if some test tasks have build tasks as prerequisites, but assuming you figure out some way to handle that, a typical set up can look like the diagram below. Here the test tasks are delayed until all necessary build artifacts are ready, but the build and lint tasks can start right away.
 
-We'll use some illustrations from Nrwlian Nicole Oliver to help explain Distributed Task Execution.
+![CI using binning](../images/dte/binning.svg)
 
-![how does distributed task execution work in Nx Cloud?](../images/dte/how-does-dte-work.jpeg)
+The problem with the binning approach is you'll end up with some idle time on one or more jobs. Nx's distributed task execution reduces that idle time to the minimum possible by assigning each individual task to agent jobs based on the task's average run time. Nx also guarantees that tasks are executed in the correct order and uses distributed caching to make sure that build artifacts from previous tasks are present on every agent job that needs them.
+
+When you set up Nx's distributed task execution, your task graph will look more like this:
+
+![CI using DTE](../images/dte/3agents.svg)
+
+And not only will CI finish faster, but the debugging experience is the same as if you ran all of your CI on a single job. That's because Nx uses distributed caching to recreate all of the logs and build artifacts on the main job.
+
+Find more information in this [detailed guide to improve your worst case CI times](https://nx.dev/concepts/dte).
 
 ## Set up
 
-To distribute your task execution, you need to (1) connect to Nx Cloud and (2) enable DTE in your CI workflow.  Each of these steps can be enabled with a single command:
+To distribute your task execution, you need to (1) connect to Nx Cloud and (2) enable DTE in your CI workflow. Each of these steps can be enabled with a single command:
 
-```bash title="1. Connect to Nx Cloud"
+```shell title="1. Connect to Nx Cloud"
 nx connect-to-nx-cloud
 ```
 
-``` bash title="2. Enable DTE in CI"
+```shell title="2. Enable DTE in CI"
 nx generate @nrwl/workspace:ci-workflow --ci=github
 ```
 
-The `--ci` flag can be `github`, `circleci` or `azure`.  For more details on setting up DTE, read [this guide](https://nx.dev/nx-cloud/set-up/set-up-dte).
+The `--ci` flag can be `github`, `circleci` or `azure`. For more details on setting up DTE, read [this guide](https://nx.dev/nx-cloud/set-up/set-up-dte).
 
-## What's a Task?
+## CI Execution Flow
 
-![what's a task? project + target (i.e. shared-product-ui + test).  each run contains many tasks.  affected:test contains shared-product-ui:test, product-page:test, shared-e2e-util:test and shared-ui:test](../images/dte/whats-a-task.jpeg)
+Distributed task execution can work on any CI provider. You are responsible for launching jobs in your CI system. Nx Cloud then coordinates the way those jobs work together. There are two different kinds of jobs that you'll need to create in your CI system.
 
-A task, from Lerna's perspective, is a target running on a project.  i.e. The target `test` running on the project `shared-product-ui` is a task.  For more information about tasks, see the [Run Tasks article](./run-tasks).
+1. One main job that controls what is going to be executed
+2. Multiple agent jobs that actually execute the tasks
 
-## Nx Cloud Schedules Your CI Tasks Automatically
+The main job execution flow looks like this:
 
-![when you turn on DTE, Nx will schedule your commands' tasks in CI.  for example, say you want to run these 3 commands to verify your code: nx affected --target=lint, nx affected --target=test and nx affected --target=build](../images/dte/schedule-tasks.jpeg)
+```yaml
+# Coordinate the agents to run the tasks
+- npx nx-cloud start-ci-run
+# Run any commands you want here
+- lerna run lint --since=main & lerna run test --since=main & lerna run build --since=main
+# Stop any run away agents
+- npx nx-cloud stop-all-agents
+```
 
-Let's imagine for every PR in CI, you want to lint, test and build all affected projects.  When you write your CI workflow, you have no way of knowing how many projects will be affected by each PR or how long each task will take.  No matter how carefully you set things up, there will be wasted time if you manually assign a static number of agent machines for linting, testing and building.  This approach is called binning.
+The agent job execution flow is very simple:
 
-Luckily, with distributed task execution, Nx Cloud can dynamically assign tasks to agents as they become available.
+```yaml
+# Wait for tasks to execute
+- npx nx-cloud start-agent
+```
 
-## Nx Cloud Efficiently Orchestrates Agents
+The main job looks more or less the same way as if you haven't used any distribution. The only thing you need to do is
+to invoke `npx nx-cloud start-ci-run` at the beginning and optionally invoke `npx nx-cloud stop-all-agents` at the end.
 
-![Nx will automatically schedule tasks w/agents you assign in CI.](../images/dte/use-agents.jpeg)
+The agent jobs run long-running `start-agent` processes that execute all the tasks associated with a given CI run. The
+only thing you need to do to set them up is to invoke `npx nx-cloud start-agent`. This process will keep running until
+Nx Cloud tells it to terminate.
 
-When you set up DTE, you define (1) the tasks that you want to run and (2) the number of agents that are available for Nx Cloud to use.  Then the Nx Cloud orchestrator distributes tasks to agents efficiently - so that all the agents are being fully utilized and your CI process finishes as soon as possible.
+> Note it's important that the main job and the agent jobs have the same environment and the same source code. They start
+> around the same time. And, once the main job completes, all the agents
+> will be stopped.
 
-## Task Execution Order Matters
+It's also important to note that an Nx Cloud agent isn't a machine but rather a long-running process that runs on a
+machine. I.e., Nx Cloud doesn't manage your agents--you need to do it in your CI config (check out CI examples below).
 
-![but don't some tasks depend on others' results?  Yep! Nx knows about your dependency tree, so it will execute tasks in the right order and make sure the results are available where they're needed.](../images/dte/task-dependencies.jpeg)
+Nx Cloud is an orchestrator. The main job tells Nx Cloud what you want to run, and Nx Cloud will distribute those tasks
+across the agents. Nx Cloud will automatically move files from one agent to another, from the agents to the main job.
 
-There are some tasks that need to be executed before other tasks, but Nx Cloud takes that into account when it assigns tasks to agents.  For a more detailed look at defining those dependencies, read the [Run Tasks article](./run-tasks).
+The end result is that when say `lerna run build --since=main` completes on the main job, all the file artifacts created
+on agents are copied over to the main job, as if the main job had built everything locally.
 
-## Why Distribute Tasks?
+## Running Things in Parallel
 
-![Result: Faster Builds!](../images/dte/faster-builds.jpeg)
+`--concurrency` is propagated to the agents. E.g., `npx lerna run build --since=main --concurrency=3 --dte` tells Nx Cloud to run
+up to 3 build targets in parallel on each agent. So if you have say 10 agents, you will run up to 30 builds in parallel
+across all of them.
 
-Efficiently parallelizing your CI process across many agents can dramatically speed up your CI, which helps developers identify problems faster and get more work done.
+You also want to run as many commands in parallel as you can. For instance,
 
-## What Does It Cost?
+```yaml
+- lerna run lint --since=main 
+- lerna run test --since=main 
+- lerna run build --since=main
+```
 
-Nx Cloud is FREE for open source projects.  Contact cloud-support@nrwl.io to get set up.
+is worse than
 
-For closed source projects, the first 500 computation hours per month are free.  Most workspaces don't exceed this amount.  No credit card is required.  After 500 hours, the cost is $1 per computation hour.
+```yaml
+- lerna run lint --since=main & lerna run test --since=main & lerna run build --since=main
+```
 
-For more details, see the [Nx Cloud pricing page](https://nx.app/pricing).
+The latter is going to schedule all the three commands at the same time, so if an agent cannot find anything to build, it will start running tests and lints. The result is better agent utilization and shorter CI time.
 
-## Security
+## CI/CD Examples
 
-Your actual code is not stored in the cloud, but the hashed inputs and cached results of your tasks are.  It is possible to enable end to end encryption of that data so that no one can view that information without your key.  Also, if you want to host Nx Cloud on your own servers, you can sign up for Nx Private Cloud.
+The examples below show how to set up CI using Nx and Nx Cloud using distributed task execution and distributed caching.
 
-## Example
+Every organization manages their CI/CD pipelines differently, so the examples don't cover org-specific aspects of
+CI/CD (e.g., deployment). They mainly focus on configuring Nx correctly.
 
-[This is an example repo](https://github.com/vsavkin/lerna-dte) showing how easy it is to set up distributed task
-execution, showing the performance gains, and comparing to sharding/binning.
+Read the guides for more information on how to configure them in CI.
 
-## Illustration
+- [Overview](https://nx.dev/recipes/ci/ci-setup#distributed-ci-with-nx-cloud)
+- [Azure Pipelines](https://nx.dev/recipes/ci/monorepo-ci-azure#distributed-ci-with-nx-cloud)
+- [Circle CI](https://nx.dev/recipes/ci/monorepo-ci-circle-ci#distributed-ci-with-nx-cloud)
+- [GitHub Actions](https://nx.dev/recipes/ci/monorepo-ci-github-actions#distributed-ci-with-nx-cloud)
+- [Jenkins](https://nx.dev/recipes/ci/monorepo-ci-jenkins#distributed-ci-with-nx-cloud)
 
-Here is the full illustrated explanation page that [Nicole Oliver](https://twitter.com/nixcodes) made:
+Note that only cacheable operations can be distributed because they have to be replayed on the main job.
 
-![How Does DTE Work Explainer](../images/dte/nx-cloud-how-does-dte-work.png)
+## Relevant Repositories and Examples
 
+- [Nx: On how to make your CI 16 times faster with a small config change](https://github.com/vsavkin/interstellar)
+- ["Lerna & Distributed Task Execution" Example](https://github.com/vsavkin/lerna-dte)

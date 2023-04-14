@@ -28,8 +28,8 @@ into your Lerna repository; this command will preserve the commit history.
 [`lerna import <package>`][import] takes a local path rather than a URL. In this
 case you will need to have the repo you wish to link to on your file system.
 
-[bootstrap]: https://github.com/lerna/lerna/blob/main/commands/bootstrap/README.md
-[import]: https://github.com/lerna/lerna/blob/main/commands/import/README.md
+[bootstrap]: https://github.com/lerna/lerna/blob/main/libs/commands/bootstrap/README.md
+[import]: https://github.com/lerna/lerna/blob/main/libs/commands/import/README.md
 
 ## How do I retry publishing if `publish` fails?
 
@@ -39,6 +39,12 @@ If the `lerna.json` has not yet been updated, simply try `lerna publish` again.
 
 If it has been updated, you can force re-publish. `lerna publish --force-publish $(ls packages/)`
 
+### Recovering from a network error
+
+In the case that some packages were successfully published and others were not, `lerna publish` may have left the repository in an inconsistent state with some changed files. To recover from this, reset any extraneous local changes from the failed run to get back to a clean working tree. Then, retry the same `lerna publish` command. Lerna will attempt to publish all of the packages again, but will recognize those that have already been published and skip over them with a warning.
+
+If you used the `lerna publish` command without positional arguments to select a new version for the packages, then you can run `lerna publish from-git` to retry publishing that same already-tagged version instead of having to bump the version again while retrying.
+
 ## The bootstrap process is really slow, what can I do?
 
 Projects having many packages inside them could take a very long time to bootstrap.
@@ -47,7 +53,7 @@ You can significantly reduce the time spent in `lerna bootstrap` if you turn
 on hoisting, see the [hoisting docs](./concepts/hoisting) for more information.
 
 In combination with that you may increase the bootstrap performance even more by
-[using yarn as an npm client](https://github.com/lerna/lerna/blob/main/commands/bootstrap/README.md#usage) instead of `npm`.
+[using yarn as an npm client](https://github.com/lerna/lerna/blob/main/libs/commands/bootstrap/README.md#usage) instead of `npm`.
 
 ## Root `package.json`
 
@@ -89,3 +95,11 @@ dependencies:
   post:
     - npm run bootstrap
 ```
+
+## How does Lerna detect packages?
+
+By default, Lerna uses the `workspaces` property in `package.json` to search for packages. For details on this property, see the [npm documentation](https://docs.npmjs.com/cli/v9/configuring-npm/package-json#workspaces) or the [Yarn documentation](https://classic.yarnpkg.com/lang/en/docs/workspaces/).
+
+If you are using `pnpm`, you might have set `npmClient` to `pnpm` in `lerna.json`. In this case, Lerna will use the `packages` property in `pnpm-workspace.yaml` to search for packages. For details on this property, see the [pnpm documentation](https://pnpm.io/workspaces).
+
+If you are using an older version of Lerna or have explicitly opted out of using workspaces, then Lerna will use the `packages` property in `lerna.json` to search for packages.

@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-Lerna is a fast modern build system for managing and publishing multiple JavaScript/TypeScript packages from the same repository.
+Lerna is a fast, modern build system for managing and publishing multiple JavaScript/TypeScript packages from the same repository.
 </p>
 
 <br />
@@ -30,7 +30,7 @@ Lerna is a fast modern build system for managing and publishing multiple JavaScr
     <a href="">
       <img alt="Semantic Release" src="https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg?style=flat" />
     </a>
-    <a href="http://commitizen.github.io/cz-cli/">
+    <a href="https://commitizen.github.io/cz-cli/">
       <img alt="Commitizen friendly" src="https://img.shields.io/badge/commitizen-friendly-brightgreen.svg">
     </a>
     <a href="https://go.nrwl.io/join-slack">

@@ -1,7 +1,7 @@
 ---
 id: version-and-publish
 title: Version and Publish
-type: explanation
+type: explainer
 ---
 
 # Version and Publish
@@ -25,7 +25,7 @@ We are going to publish the `header` and the `footer` packages.
 
 ## Versioning
 
-Lerna comes with a `version` that allows you to increment your package's version number, commit the changes and tag them accordingly.
+Lerna comes with a `version` command that allows you to increment your package's version number, commit the changes and tag them accordingly.
 
 ```bash
 lerna version --no-private
@@ -52,7 +52,7 @@ lerna info Assuming all packages changed
 Note that by passing `--no-private` we exclude all packages that are marked `private` in their `package.json` file.
 :::
 
-Lerna detects the current packages, identifies the current version and proposes the next one to choose. Note, you can also pass a semver bump directly like `lerna version 1.0.0`. More on the [version docs details](https://github.com/lerna/lerna/tree/main/commands/version#readme). Once a given version is chosen, Lerna updates the `package.json` with the version number, commits the change, adds a corresponding version tag (e.g. `v1.0.0`) and pushes the commit and the tag to the remote repository.
+Lerna detects the current packages, identifies the current version and proposes the next one to choose. Note, you can also pass a semver bump directly like `lerna version 1.0.0`. More on the [version docs details](https://github.com/lerna/lerna/tree/main/libs/commands/version#readme). Once a given version is chosen, Lerna updates the `package.json` with the version number, commits the change, adds a corresponding version tag (e.g. `v1.0.0`) and pushes the commit and the tag to the remote repository.
 
 ```json title="packages/footer/package.json"
 {
